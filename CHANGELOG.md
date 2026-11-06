@@ -2,6 +2,13 @@
 
 ## November 6, 2026
 
+### The decisions behind the workspace
+
+- Rebuilt the README around the requirements that shaped the application: permanent task entries, independent Checklist and Mermaid tools, precise diagram feedback, strict connector directions and usable phone controls.
+- Explained the rejected coupling between checklist enrollment and diagram creation. Sharing a Worker is useful; making one tool justify the other's existence was not.
+- Connected each decision to the implemented mechanism and its limits, including manual chat handoff, instruction-based permanence, dense-diagram crossings and local publishing requirements.
+- Retained the setup commands, fictional screenshots and security guidance. This update changes the explanation, not the application runtime.
+
 ### Repository presentation
 
 - Rewrote the README and repository notes with direct technical explanations and dry dark humor. The backlog can take a joke; setup commands still need to work.

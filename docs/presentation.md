@@ -8,11 +8,11 @@ This file records the repository's presentation copy and the checks needed aroun
 | --- | --- |
 | Repository name | `checklist-mermaid-workspace` |
 | README title | Checklist + Mermaid Workspace |
-| About description | Markdown checklists and Mermaid diagrams on Cloudflare Workers. Preserve task checks, request precise diagram edits, and keep your backlog's resurrection attempts on record. |
+| About description | Markdown checklists and independent Mermaid diagrams on Cloudflare Workers. Keep task history, mark precise edits, and stop asking one tool to justify the other's existence. |
 | Website | Leave empty until there is an intentionally public project page. A private workspace is not a public demo. |
 | License | Maintainer decision required before describing the project as open source. |
 
-The name says what the project contains. The description names the platform and two useful behaviors before the joke. A reader should understand the product before meeting its coping mechanism.
+The name says what the project contains. The description states the two independent tools, the platform and their useful behaviors. Its judgment comes from a real architecture decision: a diagram must not depend on checklist enrollment.
 
 Suggested topics:
 
@@ -35,7 +35,7 @@ These topics describe the implemented purpose, platform and language. GitHub per
 
 ## First-screen content
 
-The README opens with the product and deployment model, then gives the backlog one short insult. It shows the checklist, gives a small exercise, shows Mermaid and explains Request edits. Concrete controls and examples carry the explanation; jokes do not replace instructions.
+The README opens with the product and deployment model, then explains why the two tools share a workspace while keeping separate records. The story follows the requirements and rejected approaches that shaped the build: retain task entries and manual checks, separate diagram publishing, capture precise feedback, constrain connector routing and support narrow screens. Screenshots show the resulting application. Setup and operating limits remain easy to find.
 
 Screenshots should come from the exported application with fictional data:
 
@@ -50,13 +50,15 @@ Capture the app area rather than browser chrome. Inspect visible text, image met
 
 ## Writing direction
 
-The owner requested blunt technical explanations with dry dark humor. Use an opinionated developer voice, exact controls, a small worked example and candid limits. Direct the humor at recurring tasks, broken software and our own overconfidence. Keep people and their personal circumstances out of the firing line.
+The owner requested blunt technical explanations with dry dark humor, grounded in the actual build decisions. Use a concrete mental model, a decisive judgment, the cause and fix of a problem, observed behavior and exact controls. Let the specific technical problem carry the joke through the explanation. Adding a mild insult to otherwise neutral copy does not supply a point of view.
+
+Use first-person requirements only where the owner's recorded request supports them. Describe implementation and verification without implying that the owner personally ran the tests. Keep private chat details, raw reactions and fictional writing trials out of the public story. Direct humor at software behavior, unnecessary dependencies and our own overconfidence; keep people and their personal circumstances out of the firing line.
 
 Earlier research inspected [DavidAU's profile](https://huggingface.co/DavidAU) and a [representative current model card](https://huggingface.co/DavidAU/Qwen3.8-27B-Ultimate-Heretic-Uncensored). Those are reference sources, not authorship or endorsement. The repository uses original wording and does not borrow model-performance claims or copy a model card's distinctive phrasing.
 
 Keep release notes equally concrete. For example:
 
-> Diagram comments now keep their selected point or area and the reviewed revision. Open the saved request before editing. "I fixed the wrong version" is a poor resurrection story.
+> Diagram comments now keep their selected point or area and the reviewed revision. Open the saved request before editing. Coordinates without the right version only make the misunderstanding more precise.
 
 Use that form only when the release contains the described behavior. Keep commands, password guidance and recovery instructions precise. Do not force a joke into every section or make unsupported speed, security, adoption or ranking claims.
 
