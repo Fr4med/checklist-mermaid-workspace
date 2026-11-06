@@ -80,7 +80,8 @@
 .diagram-row.is-test .diagram-open { padding-left: 6px; }
 .diagram-delete:hover .icon, .diagram-delete:focus-visible .icon { color: #efa39d; }
 .mermaid-library-tip { padding: 13px 8px 0; border-top: 1px solid var(--edge); color: var(--secondary); }
-.mermaid-library-tip code { color: #e1e1dd; }
+.mermaid-library-tip span { display: block; }
+.mermaid-footer-name { color: #e1e1dd; font-weight: 500; }
 .mermaid-workspace > main { overflow: hidden; }
 .mermaid-toolbar {
   display: flex;
