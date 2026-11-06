@@ -19,12 +19,18 @@ const usage = `Mermaid workspace
   show --id <diagram-id>
   publish --id <new-id> --title <title> --file <diagram.mmd>
   publish --id <id> --title <title> --file <diagram.mmd> --base-revision <revision>
+    [--project-key <stable-key> --project-name <name>] [--test true|false]
+  organize --id <diagram-id> --base-library-revision <revision>
+    [--project-key <stable-key> --project-name <name> | --clear-project true] [--test true|false]
+  delete --id <diagram-id> --base-revision <revision> --base-library-revision <revision>
+  restore --id <diagram-id> --base-library-revision <deleted-library-revision>
   link --id <diagram-id> [--chat <actual-origin-chat-UUID>]
   requests list --diagram <diagram-id>
   requests show --id <request-UUID>
   requests resolve --id <request-UUID> --status applied|dismissed [--revision <published-revision>]
 
-Preview renders locally. Publish creates or updates one diagram. Run show to check a revision before updating.`;
+Preview renders locally. Publish creates or updates one diagram. Run show to check revisions before updating.
+Project and test changes use a separate library revision. Delete retains source and saved review requests for restore.`;
 
 function diagramId(value) {
   if (!value || value.length > 64 || !ID.test(value)) {
@@ -221,9 +227,37 @@ const options = {
   preview: ['file', 'output'],
   list: [],
   show: ['id'],
-  publish: ['id', 'title', 'file', 'base-revision'],
+  publish: ['id', 'title', 'file', 'base-revision', 'project-key', 'project-name', 'test', 'clear-project'],
+  organize: ['id', 'base-library-revision', 'project-key', 'project-name', 'test', 'clear-project'],
+  delete: ['id', 'base-revision', 'base-library-revision'],
+  restore: ['id', 'base-library-revision'],
   link: ['id', 'chat'],
 };
+
+function metadataOptions(values) {
+  const result = {};
+  const hasProject = values['project-key'] !== undefined || values['project-name'] !== undefined;
+  if (values['clear-project'] !== undefined) {
+    if (values['clear-project'] !== 'true' || hasProject) throw new Error('Use --clear-project true by itself to remove a project assignment.');
+    result.projectKey = null; result.projectName = null;
+  } else if (hasProject) {
+    for (const [option, field] of [['project-key', 'projectKey'], ['project-name', 'projectName']]) {
+      const text = values[option];
+      if (typeof text !== 'string' || !text.trim() || text.length > 160 || /[\u0000-\u001f\u007f]/.test(text)) throw new Error('Use both --project-key and --project-name with 1 to 160 printable characters.');
+      result[field] = text.trim();
+    }
+  }
+  if (values.test !== undefined) {
+    if (!['true', 'false'].includes(values.test)) throw new Error('Use --test true or --test false.');
+    result.isTest = values.test === 'true';
+  }
+  return result;
+}
+function libraryBase(value) {
+  const parsed = Number(value);
+  if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(parsed) || parsed >= Number.MAX_SAFE_INTEGER) throw new Error('Use the exact nonnegative --base-library-revision from show or the delete result.');
+  return parsed;
+}
 
 async function editRequests() {
   const action = process.argv[3];
@@ -283,6 +317,23 @@ async function main() {
 
   const id = diagramId(values.id);
   const route = '/api/diagrams/' + id;
+  if (['organize', 'delete', 'restore'].includes(command)) {
+    const baseLibraryRevision = libraryBase(values['base-library-revision']);
+    let data = { baseLibraryRevision };
+    if (command === 'organize') {
+      const metadata = metadataOptions(values);
+      if (!Object.keys(metadata).length) throw new Error('Choose a project or test status to organize.');
+      data = { ...data, ...metadata };
+    }
+    if (command === 'delete') {
+      const baseRevision = Number(values['base-revision']);
+      if (!/^[1-9]\d*$/.test(values['base-revision'] || '') || !Number.isSafeInteger(baseRevision) || baseRevision >= Number.MAX_SAFE_INTEGER) throw new Error('Use the current positive --base-revision from show before deleting.');
+      data.baseRevision = baseRevision;
+    }
+    const { result } = await request(route + (command === 'organize' ? '/metadata' : command === 'restore' ? '/restore' : ''), data, command === 'organize' ? 'PATCH' : command === 'restore' ? 'POST' : 'DELETE');
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
   if (command === 'link') {
     if (values.chat !== undefined && !UUID.test(values.chat)) throw new Error('Use the actual originating Codex chat UUID.');
     const { result } = await request(route + '/origin', values.chat === undefined ? undefined : { originChatId: values.chat.toLowerCase() });
@@ -305,6 +356,7 @@ async function main() {
   if (revision !== undefined && (!/^[1-9]\d*$/.test(revision) || !Number.isSafeInteger(baseRevision) || baseRevision >= Number.MAX_SAFE_INTEGER)) {
     throw new Error('Use the current positive revision from show when updating a diagram.');
   }
+  const metadata = metadataOptions(values);
   const source = await diagramSource(values.file);
   const { result, origin } = await request(route, { title, source, svg: await renderSvg(source), baseRevision });
   if (result?.diagram?.id !== id || result.diagram.revision !== baseRevision + 1 || result.diagram.title !== title || result.diagram.source !== source) {
@@ -312,13 +364,21 @@ async function main() {
   }
   const chat = process.env.CODEX_THREAD_ID;
   let originWarning;
+  let libraryWarning;
+  if (Object.keys(metadata).length) {
+    try {
+      const changed = await request(route + '/metadata', { ...metadata, baseLibraryRevision: result.diagram.libraryRevision }, 'PATCH');
+      if (changed.result?.diagram?.id !== id || Object.entries(metadata).some(([key, value]) => changed.result.diagram[key] !== value)) throw new Error('Unconfirmed library metadata.');
+      Object.assign(result.diagram, changed.result.diagram);
+    } catch { libraryWarning = 'Diagram published. Project or test metadata was not confirmed; inspect show before retrying that library operation.'; }
+  }
   if (UUID.test(chat || '')) {
     try {
       const metadata = await request(route + '/origin');
       if (!metadata.result.originChatId) await request(route + '/origin', { originChatId: chat.toLowerCase() });
     } catch { originWarning = 'Diagram published. The original chat could not be linked; inspect link before trying that operation again.'; }
   }
-  console.log(JSON.stringify({ id, title: result.diagram.title, revision: result.diagram.revision, url: `${origin}/mermaid#diagram=${id}`, ...(originWarning && { warning: originWarning }) }, null, 2));
+  console.log(JSON.stringify({ id, title: result.diagram.title, revision: result.diagram.revision, projectKey: result.diagram.projectKey, projectName: result.diagram.projectName, isTest: result.diagram.isTest, libraryRevision: result.diagram.libraryRevision, url: `${origin}/mermaid#diagram=${id}`, ...(originWarning && { warning: originWarning }), ...(libraryWarning && { libraryWarning }) }, null, 2));
 }
 
 main().catch(error => {

@@ -39,7 +39,7 @@ npx wrangler login
 npx wrangler d1 create checklist-mermaid
 ```
 
-Replace `database_id` in `wrangler.jsonc` with the identifier returned for your database. Confirm the Worker name and intended account before any remote command. Apply all six migrations only to this new database:
+Replace `database_id` in `wrangler.jsonc` with the identifier returned for your database. Confirm the Worker name and intended account before any remote command. Apply all seven migrations only to this new database:
 
 ```sh
 npx wrangler d1 migrations apply checklist-mermaid --remote
@@ -82,11 +82,30 @@ node scripts/mermaid.mjs preview --file examples/workflow.mmd --output <new-prev
 Alternatively set `MERMAID_CHROME_PATH` to an existing local Chrome executable. `MERMAID_PLAYWRIGHT_MODULE` can select an already installed compatible Playwright module. Browser downloads and rendering run only when you request them.
 
 ```sh
-node scripts/mermaid.mjs publish --id example-workflow --title "Example workflow" --file examples/workflow.mmd
+node scripts/mermaid.mjs publish --id example-workflow --title "Example workflow" --file examples/workflow.mmd --project-key example-project --project-name "Example project"
 node scripts/mermaid.mjs show --id example-workflow
 ```
 
 Use the current revision from `show` with `--base-revision` when updating. The optional built-in interactive document is disabled by default. Set `INTERACTIVE_DIAGRAM_FILE` explicitly before building if you want to package an interactive document you own; review its content before publication. The included small HTML example is synthetic.
+
+## Organize and remove diagrams
+
+For an existing deployment, apply `0007_diagram_library.sql` through the normal migration command before deploying this Worker version. It creates independent library metadata without replacing source diagrams or review requests.
+
+Use a diagram's folder icon to choose a project and its Test diagram status. Project groups appear in the sidebar and phone picker. Test entries have a 2px dotted blue outline. Drag the desktop library divider to change its width; the preference is stored in that browser.
+
+The CLI supports the same library operations. Read `show` first, then use its exact `libraryRevision` for organization. Keep `revision` for source publication and deletion. Replace these placeholders with the verified values:
+
+```sh
+node scripts/mermaid.mjs organize --id example-workflow --base-library-revision <library-revision> --project-key example-project --project-name "Example project"
+node scripts/mermaid.mjs organize --id example-workflow --base-library-revision <library-revision> --test true
+node scripts/mermaid.mjs delete --id example-workflow --base-revision <source-revision> --base-library-revision <library-revision>
+node scripts/mermaid.mjs restore --id example-workflow --base-library-revision <deleted-library-revision>
+```
+
+Set `--test true` only for a diagram deliberately created or classified as a test. `--clear-project true` explicitly moves a diagram to Ungrouped. Omitted metadata remains unchanged. Publishing source and applying optional project/test metadata are separate writes; if the CLI reports an unconfirmed metadata operation, inspect `show` before retrying it.
+
+Deletion hides the diagram rather than erasing its source, original-chat link or saved requests. The page offers Undo for the last deletion in the current page session. Keep the returned deletion result if you want to restore through the CLI later; restoration requires its exact library revision. An owner can reconcile a lost result with `GET /api/diagrams/<id>/metadata`, which remains available for a deleted record without returning its source or preview.
 
 ## Request and apply diagram edits
 

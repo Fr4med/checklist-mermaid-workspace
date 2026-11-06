@@ -24,7 +24,7 @@
     </form>
   </section>
   <div id="mermaid-workspace" class="mermaid-workspace" data-ui="mermaid-workspace" hidden>
-    <aside class="mermaid-library" aria-label="Diagram library">
+    <aside id="diagram-library" class="mermaid-library" aria-label="Diagram library">
       <div class="mermaid-brand"><span data-icon="diagram"></span><span>Mermaid</span></div>
       <div class="mermaid-library-heading">
         <h2>Diagrams</h2>
@@ -33,10 +33,11 @@
       <nav id="diagram-list" aria-label="Diagrams"></nav>
       <p class="mermaid-library-tip">Publish from Codex with <code>$mermaid</code>.</p>
     </aside>
+    <div id="mermaid-library-resize" class="mermaid-library-resize" role="separator" aria-label="Resize diagram sidebar" aria-orientation="vertical" aria-controls="diagram-library" tabindex="0" title="Drag to resize. Double-click to reset."></div>
     <main>
       <header class="mermaid-toolbar">
         <div class="mermaid-heading">
-          <span class="mermaid-eyebrow">Mermaid</span>
+          <span id="diagram-project-label" class="mermaid-eyebrow">Mermaid</span>
           <h1 id="diagram-title">Diagram library</h1>
         </div>
         <div class="mermaid-actions">
@@ -51,6 +52,8 @@
       <div id="diagram-mobile-library" class="diagram-mobile-library" hidden>
         <label class="sr-only" for="diagram-picker">Diagram</label>
         <select id="diagram-picker"></select>
+        <button id="mobile-organize-diagram" class="icon-button" type="button" title="Organize diagram" aria-label="Organize selected diagram" data-icon="folder"></button>
+        <button id="mobile-delete-diagram" class="icon-button diagram-delete" type="button" title="Delete diagram" aria-label="Delete selected diagram" data-icon="trash"></button>
       </div>
       <p id="mermaid-notice" class="notice" role="status" hidden></p>
       <div class="mermaid-stage">
@@ -67,6 +70,38 @@
       </div>
     </main>
   </div>
+  <dialog id="organize-diagram-dialog" class="diagram-library-dialog" aria-labelledby="organize-diagram-title">
+    <form id="organize-diagram-form">
+      <div class="dialog-heading">
+        <h2 id="organize-diagram-title">Organize diagram</h2>
+        <button class="icon-button" type="button" data-close-dialog="organize-diagram-dialog" title="Close" aria-label="Close" data-icon="close"></button>
+      </div>
+      <p id="organize-diagram-name" class="diagram-library-context"></p>
+      <label for="diagram-project-name">Project</label>
+      <input id="diagram-project-name" type="text" maxlength="160" list="diagram-project-options" autocomplete="off" placeholder="Choose or name a project">
+      <datalist id="diagram-project-options"></datalist>
+      <p class="diagram-library-help">Leave blank for Ungrouped.</p>
+      <label class="diagram-test-setting"><input id="diagram-is-test" type="checkbox"><span>Test diagram</span></label>
+      <p class="diagram-library-help">Test diagrams have a dotted blue outline in the library.</p>
+      <p id="organize-diagram-error" class="error" role="alert"></p>
+      <div class="dialog-footer">
+        <button class="soft-button" type="button" data-close-dialog="organize-diagram-dialog">Cancel</button>
+        <button id="save-diagram-organization" class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="delete-diagram-dialog" class="diagram-library-dialog" aria-labelledby="delete-diagram-title">
+    <form id="delete-diagram-form">
+      <h2 id="delete-diagram-title">Delete diagram?</h2>
+      <p id="delete-diagram-name" class="diagram-library-context"></p>
+      <p class="diagram-library-help">Remove this diagram from the library? You can undo this.</p>
+      <p id="delete-diagram-error" class="error" role="alert"></p>
+      <div class="dialog-footer">
+        <button class="soft-button" type="button" data-close-dialog="delete-diagram-dialog">Cancel</button>
+        <button id="confirm-delete-diagram" class="diagram-danger-button" type="submit">Delete</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="source-dialog" aria-labelledby="source-title">
     <div class="dialog-heading">
       <h2 id="source-title">Mermaid source</h2>

@@ -15,7 +15,7 @@ const MARKDOWN = `# First project\n\n- [ ] Keep the original task <!-- checklist
 
 // Executes the production SQL against real SQLite, exposing only the D1 calls used here.
 class LocalD1 {
-  constructor() { this.db = new DatabaseSync(':memory:'); for (const file of ['0001_initial.sql', '0002_hierarchy_archive.sql', '0003_origin_chat.sql', '0004_mermaid.sql', '0005_password.sql', '0006_diagram_edits.sql']) this.db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8')); }
+  constructor() { this.db = new DatabaseSync(':memory:'); for (const file of ['0001_initial.sql', '0002_hierarchy_archive.sql', '0003_origin_chat.sql', '0004_mermaid.sql', '0005_password.sql', '0006_diagram_edits.sql', '0007_diagram_library.sql']) this.db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8')); }
   prepare(sql) {
     const statement = this.db.prepare(sql);
     const bound = args => ({
@@ -119,6 +119,7 @@ test('Mermaid has a private library independent of checklist registration and ar
   assert.deepEqual(created.value.diagram, {
     id: 'independent-flow', title: diagramInput.title, source: diagramSource, revision: 1,
     updatedAt: created.value.diagram.updatedAt, kind: 'svg',
+    projectKey: null, projectName: null, isTest: false, libraryRevision: 0, deletedAt: null,
   });
   const { diagrams } = (await request(index, { cookie })).value;
   assert.equal(diagrams.length, initial.length + 1);
@@ -587,8 +588,8 @@ test('invalid hierarchy metadata is rejected before creating or classifying a ch
   assert.equal(current.value.project.projectKey, 'project-one');
 });
 
-const ORIGIN_CHAT_A = '867523d0-69d3-4e99-8198-7bbb32063e1f';
-const ORIGIN_CHAT_B = '6b0236bc-558b-48a9-814a-fb97a18a6722';
+const ORIGIN_CHAT_A = '33333333-3333-4333-8333-000000000001';
+const ORIGIN_CHAT_B = '33333333-3333-4333-8333-000000000002';
 
 test('origin migration links only existing chat checklists and preserves their source and manual decisions', t => {
   const db = new DatabaseSync(':memory:'); t.after(() => db.close());
@@ -977,18 +978,18 @@ test('old SHA-only cookies survive rollout before password setup and cannot retu
 test('sign-in attempts use a durable hashed edge-IP bucket with bounded cleanup and no forwarded-header bypass', async t => {
   const { request, DB } = setup(t);
   const attempt = headers => request('/api/session', { method: 'POST', origin: ORIGIN, headers, data: { password: 'incorrect password text' } });
-  for (let index = 0; index < 10; index++) assert.equal((await attempt({ 'CF-Connecting-IP': 'fixture-address-5', 'X-Forwarded-For': `spoofed-forwarded-${index}` })).status, 401);
-  const blocked = await attempt({ 'CF-Connecting-IP': 'fixture-address-5', 'X-Forwarded-For': 'spoofed-alternate-5' });
+  for (let index = 0; index < 10; index++) assert.equal((await attempt({ 'CF-Connecting-IP': '192.0.2.5', 'X-Forwarded-For': `198.51.100.${index}` })).status, 401);
+  const blocked = await attempt({ 'CF-Connecting-IP': '192.0.2.5', 'X-Forwarded-For': '203.0.113.5' });
   assert.equal(blocked.status, 429);
   assert.ok(Number(blocked.response.headers.get('Retry-After')) > 0);
-  assert.equal((await attempt({ 'CF-Connecting-IP': 'fixture-address-6' })).status, 401);
+  assert.equal((await attempt({ 'CF-Connecting-IP': '192.0.2.6' })).status, 401);
   const rows = DB.db.prepare('SELECT * FROM password_attempts').all();
   assert.equal(rows.length, 2);
   for (const row of rows) assert.match(row.bucket, /^[a-f0-9]{64}$/);
-  assert.ok(!JSON.stringify(rows).includes('fixture-address-'));
+  assert.ok(!JSON.stringify(rows).includes('192.0.2.'));
   assert.equal((await request('/api/projects', { token: ADMIN })).status, 200);
   DB.db.exec('UPDATE password_attempts SET expires_at = 1');
-  assert.equal((await attempt({ 'CF-Connecting-IP': 'fixture-address-5' })).status, 401);
+  assert.equal((await attempt({ 'CF-Connecting-IP': '192.0.2.5' })).status, 401);
   assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM password_attempts').get().count, 1);
 });
 
@@ -1019,12 +1020,12 @@ test('expired attempt buckets reset even when bounded cleanup cannot reach the r
 test('attempt bucket storage stays bounded while existing users and owner API access keep working', async t => {
   const { request, DB } = setup(t);
   const attempt = address => request('/api/session', { method: 'POST', origin: ORIGIN, headers: { 'CF-Connecting-IP': address }, data: { password: 'incorrect password text' } });
-  assert.equal((await attempt('fixture-address-7')).status, 401);
+  assert.equal((await attempt('192.0.2.7')).status, 401);
   const insert = DB.db.prepare('INSERT INTO password_attempts (bucket, attempts, expires_at) VALUES (?, 1, ?)');
   const expires = Math.floor(Date.now() / 1000) + 900;
   for (let index = 1; index < 4096; index++) insert.run(`synthetic-active-${index}`, expires);
-  assert.equal((await attempt('fixture-address-8')).status, 429);
-  assert.equal((await attempt('fixture-address-7')).status, 401);
+  assert.equal((await attempt('192.0.2.8')).status, 429);
+  assert.equal((await attempt('192.0.2.7')).status, 401);
   assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM password_attempts').get().count, 4096);
   assert.equal((await request('/api/projects', { token: ADMIN })).status, 200);
 });
@@ -1089,9 +1090,9 @@ test('an interrupted password-change transaction rolls back its verifier and ses
   assert.equal((await request('/api/projects', { cookie })).status, 200);
 });
 
-const EDIT_UUID = '6002712b-2a48-463e-84a5-1889a35df1b0';
-const EDIT_CHAT = '8625b5c9-c5b7-42ce-8c14-bd8db7f52979';
-const EDIT_NEXT_CHAT = '1d6a1ae4-fc67-4e99-8974-5ccadb5595b8';
+const EDIT_UUID = '11111111-1111-4111-8111-111111111111';
+const EDIT_CHAT = '22222222-2222-4222-8222-222222222222';
+const EDIT_NEXT_CHAT = '33333333-3333-4333-8333-333333333333';
 const EDIT_ANNOTATION = { id: 'pin-one', kind: 'point', x: 0.25, y: 0.75, width: 0, height: 0, view: 'diagram', nodeId: 'A', nodeLabel: 'First', comment: '  Put this node before the second step.\nKeep its current label.  ' };
 const EDIT_HASH = createHash('sha256').update(diagramSvg).digest('hex');
 const EDIT_INPUT = { id: EDIT_UUID, baseRevision: 1, baseHash: EDIT_HASH, originChatId: EDIT_CHAT, annotations: [EDIT_ANNOTATION] };
@@ -1269,7 +1270,7 @@ test('Mermaid saved edit requests retain their comments when marked applied or d
   const dismissed = (await request(path, { method: 'PATCH', token: ADMIN, data: { status: 'dismissed' } })).value.request;
   assert.deepEqual(dismissed, { ...saved, status: 'dismissed', appliedRevision: null });
   assert.equal((await request(path, { method: 'DELETE', token: ADMIN })).status, 404);
-  assert.equal((await request('/api/diagram-edit-requests/29433aa1-4964-4364-8f0e-04186fd3f15c', { token: ADMIN })).status, 404);
+  assert.equal((await request('/api/diagram-edit-requests/44444444-4444-4444-8444-444444444444', { token: ADMIN })).status, 404);
 });
 
 test('Mermaid request capacity blocks new rows while keeping idempotent retries available', async t => {
@@ -1280,7 +1281,7 @@ test('Mermaid request capacity blocks new rows while keeping idempotent retries 
   const seed = DB.db.prepare('SELECT * FROM diagram_edit_requests WHERE id = ?').get(EDIT_UUID);
   const insert = DB.db.prepare('INSERT INTO diagram_edit_requests (id, diagram_id, diagram_revision, diagram_hash, diagram_title, annotations_json, payload_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   for (let i = 0; i < 999; i++) insert.run('capacity-' + i, 'edit-flow', 1, seed.diagram_hash, seed.diagram_title, seed.annotations_json, seed.payload_hash, seed.created_at);
-  const blocked = await request(path, { method: 'POST', token: ADMIN, data: { ...EDIT_INPUT, id: '150120d2-2eb0-44df-8b2d-cdc3d3ed3c9d' } });
+  const blocked = await request(path, { method: 'POST', token: ADMIN, data: { ...EDIT_INPUT, id: '55555555-5555-4555-8555-555555555555' } });
   assert.equal(blocked.status, 409);
   assert.match(blocked.value.error, /1000/);
   assert.deepEqual((await request(path, { method: 'POST', token: ADMIN, data: EDIT_INPUT })).value, first.value);
@@ -1321,5 +1322,205 @@ test('diagram preview checksum preconditions bind the rendered SVG and HTML to t
         assert.equal((await request(path + suffix, { method })).status, 401);
       }
     }
+  }
+});
+
+test('diagram library writes require owner authority and same-origin browser requests', async t => {
+  const { request, create, login } = setup(t);
+  await createEditableDiagram(request);
+  const { token } = await create();
+  const cookie = await login();
+  const actions = [
+    ['/api/diagrams/edit-flow/metadata', 'PATCH', { baseLibraryRevision: 0, projectKey: 'studio', projectName: 'Studio' }],
+    ['/api/diagrams/edit-flow', 'DELETE', { baseRevision: 1, baseLibraryRevision: 0 }],
+    ['/api/diagrams/edit-flow/restore', 'POST', { baseLibraryRevision: 0 }],
+  ];
+  for (const [path, method, data] of actions) {
+    assert.equal((await request(path, { method, data })).status, 401);
+    assert.equal((await request(path, { method, data, token })).status, 403);
+    assert.equal((await request(path, { method, data, cookie })).status, 403);
+    assert.equal((await request(path, { method, data, cookie, origin: 'https://other.example' })).status, 403);
+  }
+  assert.equal((await request(actions[0][0], { method: 'PATCH', data: actions[0][2], cookie, origin: ORIGIN })).status, 200);
+});
+
+test('project grouping and explicit test status use library revisions without changing diagram content', async t => {
+  const { request, DB } = setup(t);
+  const original = await createEditableDiagram(request);
+  const baseline = { ...DB.db.prepare('SELECT * FROM mermaid_diagrams WHERE id = ?').get('edit-flow') };
+  const route = '/api/diagrams/edit-flow';
+  const patch = data => request(route + '/metadata', { method: 'PATCH', token: ADMIN, data });
+  const first = await patch({ baseLibraryRevision: 0, projectKey: 'studio', projectName: 'Studio', isTest: true });
+  assert.equal(first.status, 200);
+  assert.deepEqual([first.value.diagram.projectKey, first.value.diagram.projectName, first.value.diagram.isTest, first.value.diagram.libraryRevision], ['studio', 'Studio', true, 1]);
+  assert.equal(first.value.diagram.revision, original.revision);
+  assert.deepEqual({ ...DB.db.prepare('SELECT * FROM mermaid_diagrams WHERE id = ?').get('edit-flow') }, baseline);
+  const listed = (await request('/api/diagrams', { token: ADMIN })).value.diagrams.find(item => item.id === 'edit-flow');
+  assert.deepEqual(listed, first.value.diagram);
+  assert.equal((await patch({ baseLibraryRevision: 0, isTest: false })).status, 409);
+  const cleared = await patch({ baseLibraryRevision: 1, projectKey: null, projectName: null });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.value.diagram.isTest, true, 'omitted flags retain their value');
+  assert.equal(cleared.value.diagram.projectName, null);
+  const sourceUpdate = await request(route, { method: 'PUT', token: ADMIN, data: { ...diagramInput, baseRevision: 1, title: 'Revised source title' } });
+  assert.equal(sourceUpdate.status, 200);
+  assert.equal(sourceUpdate.value.diagram.libraryRevision, 2, 'source publication retains independent library metadata');
+  assert.equal(sourceUpdate.value.diagram.isTest, true);
+  assert.equal(sourceUpdate.value.diagram.projectKey, null);
+  assert.equal((await request(route + '/origin', { token: ADMIN })).value.diagramHash, EDIT_HASH);
+  assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 0, 'grouping does not enroll a checklist');
+});
+
+test('diagram library metadata rejects invalid fields, missing revisions and incomplete project pairs', async t => {
+  const { request } = setup(t);
+  await createEditableDiagram(request);
+  for (const data of [
+    { isTest: true }, { baseLibraryRevision: -1, isTest: true }, { baseLibraryRevision: '0', isTest: true },
+    { baseLibraryRevision: 0 }, { baseLibraryRevision: 0, isTest: 'true' },
+    { baseLibraryRevision: 0, projectKey: 'only-a-key' }, { baseLibraryRevision: 0, projectName: 'Only a name' },
+    { baseLibraryRevision: 0, projectKey: null, projectName: 'Name' },
+    { baseLibraryRevision: 0, projectKey: '', projectName: '' },
+    { baseLibraryRevision: 0, projectKey: 'x'.repeat(161), projectName: 'Name' },
+    { baseLibraryRevision: 0, projectKey: 'valid', projectName: 'Bad\u0000name' },
+  ]) assert.equal((await request('/api/diagrams/edit-flow/metadata', { method: 'PATCH', token: ADMIN, data })).status, 400, JSON.stringify(data));
+  assert.equal((await request('/api/diagrams/missing/metadata', { method: 'PATCH', token: ADMIN, data: { baseLibraryRevision: 0, isTest: true } })).status, 404);
+});
+
+test('deleting a diagram hides every entry point and restore preserves source, origins and saved comments', async t => {
+  const { request, DB } = setup(t);
+  await createEditableDiagram(request);
+  await request('/api/diagrams/edit-flow/origin', { method: 'PUT', token: ADMIN, data: { originChatId: EDIT_CHAT } });
+  const saved = (await request('/api/diagrams/edit-flow/requests', { method: 'POST', token: ADMIN, data: EDIT_INPUT })).value.request;
+  const baseline = { ...DB.db.prepare('SELECT * FROM mermaid_diagrams WHERE id = ?').get('edit-flow') };
+  const route = '/api/diagrams/edit-flow';
+  const remove = data => request(route, { method: 'DELETE', token: ADMIN, data });
+  assert.equal((await remove({ baseRevision: 2, baseLibraryRevision: 0 })).status, 409);
+  assert.equal((await remove({ baseRevision: 1 })).status, 400);
+  await request(route + '/metadata', { method: 'PATCH', token: ADMIN, data: { baseLibraryRevision: 0, isTest: true, projectKey: 'studio', projectName: 'Studio' } });
+  assert.equal((await remove({ baseRevision: 1, baseLibraryRevision: 0 })).status, 409);
+  const deleted = await remove({ baseRevision: 1, baseLibraryRevision: 1 });
+  assert.equal(deleted.status, 200);
+  assert.ok(deleted.value.diagram.deletedAt);
+  assert.equal(deleted.value.diagram.libraryRevision, 2);
+  assert.equal(deleted.value.diagram.revision, 1);
+  assert.equal((await request('/api/diagrams', { token: ADMIN })).value.diagrams.some(item => item.id === 'edit-flow'), false);
+  for (const path of [route, route + '/origin', route + '/requests', '/diagram/edit-flow', '/diagram/edit-flow?checksum=' + EDIT_HASH]) assert.equal((await request(path, { token: ADMIN })).status, 404, path);
+  assert.equal((await request('/diagram/edit-flow', { method: 'HEAD', token: ADMIN })).status, 404);
+  assert.equal((await request(route, { method: 'PUT', token: ADMIN, data: { ...diagramInput, baseRevision: 1 } })).status, 404);
+  assert.equal((await request(route, { method: 'PUT', token: ADMIN, data: diagramInput })).status, 404, 'publication cannot recreate a tombstoned ID');
+  assert.equal((await request(route + '/requests', { method: 'POST', token: ADMIN, data: { ...EDIT_INPUT, id: '99999999-9999-4999-8999-999999999999' } })).status, 404);
+  assert.deepEqual((await request('/api/diagram-edit-requests/' + EDIT_UUID, { token: ADMIN })).value.request, saved, 'historical saved request stays readable');
+  assert.equal((await request(route + '/restore', { method: 'POST', token: ADMIN, data: { baseLibraryRevision: 1 } })).status, 409);
+  const restored = await request(route + '/restore', { method: 'POST', token: ADMIN, data: { baseLibraryRevision: 2 } });
+  assert.equal(restored.status, 200);
+  assert.deepEqual([restored.value.diagram.libraryRevision, restored.value.diagram.deletedAt, restored.value.diagram.isTest, restored.value.diagram.projectName], [3, null, true, 'Studio']);
+  assert.deepEqual({ ...DB.db.prepare('SELECT * FROM mermaid_diagrams WHERE id = ?').get('edit-flow') }, baseline);
+  assert.equal((await request('/diagram/edit-flow', { token: ADMIN })).value, diagramSvg);
+  assert.equal((await request(route + '/origin', { token: ADMIN })).value.originChatId, EDIT_CHAT);
+  assert.deepEqual((await request(route + '/requests', { token: ADMIN })).value.requests, [saved]);
+  assert.equal((await request(route + '/restore', { method: 'POST', token: ADMIN, data: { baseLibraryRevision: 3 } })).status, 409);
+});
+
+test('the built-in diagram supports project metadata, deletion and restore without rewriting its payload', async t => {
+  if (!interactiveDiagram) return t.skip('No built-in diagram in this package');
+  const { request, DB } = setup(t);
+  const route = '/api/diagrams/interactive-example';
+  const initial = (await request(route, { token: ADMIN })).value.diagram;
+  assert.deepEqual([initial.projectKey, initial.projectName, initial.libraryRevision], ['interactive-example', 'Interactive example', 0]);
+  const baseline = (await request('/diagram/interactive-example', { token: ADMIN })).value;
+  assert.equal((await request(route + '/metadata', { method: 'PATCH', token: ADMIN, data: { baseLibraryRevision: 0, projectKey: 'studio', projectName: 'Studio', isTest: true } })).status, 200);
+  const removed = await request(route, { method: 'DELETE', token: ADMIN, data: { baseRevision: 1, baseLibraryRevision: 1 } });
+  assert.equal(removed.status, 200);
+  assert.equal((await request(route, { token: ADMIN })).status, 404);
+  assert.equal((await request('/diagram/interactive-example', { token: ADMIN })).status, 404);
+  assert.equal((await request('/api/diagrams', { token: ADMIN })).value.diagrams.some(item => item.id === 'interactive-example'), false);
+  assert.equal((await request(route + '/restore', { method: 'POST', token: ADMIN, data: { baseLibraryRevision: 2 } })).status, 200);
+  const restored = (await request(route, { token: ADMIN })).value.diagram;
+  assert.deepEqual([restored.kind, restored.source, restored.revision, restored.projectName, restored.isTest], ['interactive', null, 1, 'Studio', true]);
+  assert.equal((await request('/diagram/interactive-example', { token: ADMIN })).value, baseline);
+  assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM mermaid_diagrams').get().count, 0);
+});
+
+test('diagram deletion atomically rejects a competing source update', async t => {
+  const { request, DB } = setup(t);
+  await createEditableDiagram(request);
+  const prepare = DB.prepare.bind(DB); let changed = false;
+  DB.prepare = sql => {
+    if (!changed && sql.startsWith('INSERT INTO diagram_library')) {
+      changed = true;
+      DB.db.prepare('UPDATE mermaid_diagrams SET revision = revision + 1 WHERE id = ?').run('edit-flow');
+    }
+    return prepare(sql);
+  };
+  const result = await request('/api/diagrams/edit-flow', { method: 'DELETE', token: ADMIN, data: { baseRevision: 1, baseLibraryRevision: 0 } });
+  assert.equal(result.status, 409);
+  assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM diagram_library').get().count, 0);
+  assert.equal((await request('/api/diagrams/edit-flow', { token: ADMIN })).value.diagram.revision, 2);
+});
+
+test('new saved comments cannot race past a diagram deletion', async t => {
+  const { request, DB } = setup(t);
+  await createEditableDiagram(request);
+  const prepare = DB.prepare.bind(DB); let changed = false;
+  DB.prepare = sql => {
+    if (!changed && sql.startsWith('INSERT INTO diagram_edit_requests')) {
+      changed = true;
+      DB.db.prepare('INSERT INTO diagram_library (diagram_id, project_key, project_name, is_test, deleted_at, revision, updated_at) VALUES (?, NULL, NULL, 0, ?, 1, ?)').run('edit-flow', '2026-11-06T12:00:00Z', '2026-11-06T12:00:00Z');
+    }
+    return prepare(sql);
+  };
+  const result = await request('/api/diagrams/edit-flow/requests', { method: 'POST', token: ADMIN, data: EDIT_INPUT });
+  assert.equal(result.status, 404);
+  assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM diagram_edit_requests').get().count, 0);
+});
+
+test('competing library edits preserve the winning project and reject stale metadata', async t => {
+  const { request } = setup(t);
+  await createEditableDiagram(request);
+  const writes = await Promise.all([
+    request('/api/diagrams/edit-flow/metadata', { method: 'PATCH', token: ADMIN, data: { baseLibraryRevision: 0, projectKey: 'alpha', projectName: 'Alpha', isTest: true } }),
+    request('/api/diagrams/edit-flow/metadata', { method: 'PATCH', token: ADMIN, data: { baseLibraryRevision: 0, projectKey: 'beta', projectName: 'Beta', isTest: false } }),
+  ]);
+  assert.deepEqual(writes.map(result => result.status).sort(), [200, 409]);
+  const winner = writes.find(result => result.status === 200).value.diagram;
+  const saved = (await request('/api/diagrams/edit-flow', { token: ADMIN })).value.diagram;
+  assert.equal(saved.libraryRevision, 1);
+  assert.equal(saved.projectKey, winner.projectKey);
+  assert.equal(saved.projectName, winner.projectName);
+  assert.equal(saved.isTest, winner.isTest);
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.source, diagramSource);
+});
+
+test('owner-only library metadata reads reconcile deletion without exposing or changing stored content', async t => {
+  const { request, create, login, DB } = setup(t);
+  await createEditableDiagram(request);
+  const { token } = await create();
+  const cookie = await login();
+  const path = '/api/diagrams/edit-flow/metadata';
+  assert.equal((await request(path)).status, 401);
+  assert.equal((await request(path, { token })).status, 403);
+  const active = await request(path, { cookie });
+  assert.equal(active.status, 200);
+  assert.equal(active.value.diagram.libraryRevision, 0);
+  assert.equal(active.value.diagram.deletedAt, null);
+  assert.equal(Object.hasOwn(active.value.diagram, 'source'), false);
+  assert.equal(Object.hasOwn(active.value.diagram, 'svg'), false);
+  assert.equal(DB.db.prepare('SELECT COUNT(*) AS count FROM diagram_library').get().count, 0, 'read does not create metadata');
+  const deleted = (await request('/api/diagrams/edit-flow', { method: 'DELETE', token: ADMIN, data: { baseRevision: 1, baseLibraryRevision: 0 } })).value.diagram;
+  const readback = await request(path, { token: ADMIN });
+  assert.deepEqual(readback.value.diagram, deleted);
+  assert.equal((await request('/api/diagrams/edit-flow', { token: ADMIN })).status, 404);
+  assert.equal((await request('/diagram/edit-flow', { token: ADMIN })).status, 404);
+  assert.equal((await request('/api/diagrams/missing/metadata', { token: ADMIN })).status, 404);
+  if (interactiveDiagram) {
+    const builtIn = (await request('/api/diagrams/interactive-example/metadata', { cookie })).value.diagram;
+    assert.deepEqual([builtIn.id, builtIn.kind, builtIn.libraryRevision], ['interactive-example', 'interactive', 0]);
+    assert.equal(Object.hasOwn(builtIn, 'source'), false);
+    await request('/api/diagrams/interactive-example', { method: 'DELETE', token: ADMIN, data: { baseRevision: 1, baseLibraryRevision: 0 } });
+    const hidden = (await request('/api/diagrams/interactive-example/metadata', { token: ADMIN })).value.diagram;
+    assert.ok(hidden.deletedAt);
+    assert.equal(hidden.libraryRevision, 1);
+    assert.equal(Object.hasOwn(hidden, 'svg'), false);
   }
 });

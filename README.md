@@ -44,6 +44,18 @@ We split the records, pages, APIs and skills. The mode switch changes the tool y
 
 The included skills can be installed or adapted for your checkout. They share the application, not responsibility for each other's records.
 
+## The library should fit the work
+
+I wanted project folders, readable titles and a way to remove diagrams I no longer needed. Cutting every title off at the same width is not minimalism. It is making the user finish the interface in their head.
+
+Drag the divider beside the diagram library to widen or shrink it. The width stays in this browser. Focus the divider and use the arrow keys for smaller adjustments, or double-click to reset it. The canvas keeps a minimum usable width instead of disappearing to accommodate one heroic filename.
+
+Use a diagram's folder icon to choose its project or change its **Test diagram** setting. Project folders collapse independently. Diagrams without a project stay under **Ungrouped**; the app does not invent an association from a similar title. A test diagram gets a thin **2px dotted blue outline** around its library row. On a phone, the grouped picker and selected-diagram controls provide the same organization and deletion actions, with the test outline around the picker.
+
+The trash icon opens a confirmation for that diagram. **Delete** removes it from the visible library; **Undo** restores it. Source, original-chat links and saved review requests remain stored. Deleting a draft should not require performing amateur evidence disposal. The CLI can also restore it using the library revision returned by deletion.
+
+Library changes use `libraryRevision`, independently of the diagram's source `revision`. Moving a diagram to another project or marking it as a test does not change the content version someone reviewed. Deletion checks both versions so an old tab cannot remove a newer diagram by accident.
+
 ## “Fix this” needs an address
 
 The change-request button belongs in Mermaid, with the functions behind it. A button that merely looks like an editing tool is just a very small lie.

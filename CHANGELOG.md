@@ -2,6 +2,14 @@
 
 ## November 6, 2026
 
+### A diagram library with room to work
+
+- Added a resizable desktop sidebar with a saved browser preference, keyboard adjustments and reset. Long diagram titles no longer have to lose the same argument with a fixed-width column.
+- Grouped diagrams by explicit project metadata, with collapsible folders and matching phone picker groups. Missing project data stays Ungrouped.
+- Added organization and delete controls to every diagram. Deletion checks the source and library revisions, hides the diagram and retains its source, origin links and saved review requests for Undo or CLI restoration.
+- Added an explicit Test diagram setting and a 2px dotted blue outline on test rows, or the selected test diagram's phone picker.
+- Kept library revisions separate from diagram source versions, so organization does not invalidate a content review. Added migration `0007_diagram_library.sql`; apply it before serving the updated Worker.
+
 ### The decisions behind the workspace
 
 - Rebuilt the README around the requirements that shaped the application: permanent task entries, independent Checklist and Mermaid tools, precise diagram feedback, strict connector directions and usable phone controls.

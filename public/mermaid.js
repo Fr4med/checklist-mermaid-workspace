@@ -1,6 +1,7 @@
 import { createPasswordSettings } from './password-settings.mjs';
 import { attachSvgEditSurface, createDiagramEdits } from './diagram-edits.mjs';
 import { normalizeDiagramTarget } from './diagram-edit-request.mjs';
+import { attachSidebarResize } from './sidebar-resize.mjs';
 
 const icons = {
   diagram: 'M9 3h6v6H9zM3 16h6v5H3zM15 16h6v5h-6zM12 9v4M6 16v-3h12v3',
@@ -13,6 +14,9 @@ const icons = {
   plus: 'M12 5v14M5 12h14',
   fit: 'M9 4H4v5m11-5h5v5m0 6v5h-5m-6 0H4v-5',
   key: 'M15 8a5 5 0 1 1-3 9L4 21H2v-4l8-8a5 5 0 0 1 5-1M16 7h.01',
+  folder: 'M3 7h7l2-3h9v16H3z',
+  trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',
+  chevron: 'm9 5 7 7-7 7',
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[name]}"/></svg>`;
 document.querySelectorAll('[data-icon]').forEach(element => { element.innerHTML = icon(element.dataset.icon); });
@@ -25,8 +29,15 @@ const sourceDialog = $('source-dialog');
 let diagrams = [];
 let selected = null;
 let libraryRequest = null;
+let libraryRefreshPromise = null;
 let selectionRequest = null;
 let svgControls = null;
+let organizeTarget = null;
+let deleteTarget = null;
+let libraryBusy = false;
+let lastDeleted = null;
+const collapsedProjects = new Set();
+attachSidebarResize({ workspace: $('mermaid-workspace'), handle: $('mermaid-library-resize') });
 const diagramEdits = createDiagramEdits({
   button: $('request-diagram-edits'), host: stage.parentElement, api: request,
   onUnauthorized: () => showAuth('Sign in again to save your diagram request.'),
@@ -74,8 +85,20 @@ function message(text = '', retry = false) {
   $('retry-diagram').hidden = !retry;
 }
 
-function notice(text = '') {
-  $('mermaid-notice').textContent = text;
+function notice(text = '', action = null) {
+  if (!text && lastDeleted) {
+    text = `Deleted “${lastDeleted.title}”.`;
+    action = { label: 'Undo', run: restoreLastDiagram };
+  }
+  $('mermaid-notice').replaceChildren(document.createTextNode(text));
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'notice-action';
+    button.textContent = action.label;
+    button.addEventListener('click', () => { void action.run(); });
+    $('mermaid-notice').append(button);
+  }
   $('mermaid-notice').hidden = !text;
 }
 
@@ -93,6 +116,11 @@ function clearPreview() {
 
 function showAuth(text = '') {
   passwordSettings.close();
+  $('organize-diagram-dialog').close();
+  $('delete-diagram-dialog').close();
+  organizeTarget = null;
+  deleteTarget = null;
+  lastDeleted = null;
   libraryRequest?.abort();
   clearPreview();
   selected = null;
@@ -109,32 +137,178 @@ function renderLibrary() {
   const picker = $('diagram-picker');
   list.replaceChildren();
   picker.replaceChildren();
+  const groups = new Map();
   for (const diagram of diagrams) {
+    const key = diagram.projectKey || '';
+    if (!groups.has(key)) groups.set(key, { key, name: diagram.projectName || 'Ungrouped', diagrams: [] });
+    groups.get(key).diagrams.push(diagram);
+  }
+  const ordered = [...groups.values()].sort((a, b) => !a.key ? 1 : !b.key ? -1 : a.name.localeCompare(b.name));
+  const options = $('diagram-project-options');
+  options.replaceChildren();
+  for (const group of ordered) {
+    const section = document.createElement('details');
+    section.className = 'diagram-project-group';
+    section.dataset.project = group.key;
+    section.open = !collapsedProjects.has(group.key);
+    section.addEventListener('toggle', () => {
+      if (section.open) collapsedProjects.delete(group.key); else collapsedProjects.add(group.key);
+    });
+    const summary = document.createElement('summary');
+    summary.innerHTML = icon('chevron') + icon('folder');
+    summary.firstElementChild.classList.add('project-chevron');
+    const label = document.createElement('span');
+    label.className = 'diagram-project-name';
+    label.textContent = group.name;
+    label.title = group.name;
+    const count = document.createElement('span');
+    count.className = 'diagram-project-count';
+    count.textContent = group.diagrams.length;
+    summary.append(label, count);
+    section.append(summary);
+    const items = document.createElement('div');
+    items.className = 'diagram-project-items';
+    const optionGroup = document.createElement('optgroup');
+    optionGroup.label = group.name;
+    if (group.key) options.append(new Option(group.name, group.name));
+    for (const diagram of group.diagrams) {
+    const row = document.createElement('div');
+    row.className = 'diagram-row' + (diagram.isTest ? ' is-test' : '');
+    row.dataset.diagramId = diagram.id;
+    row.dataset.selected = String(diagram.id === selected?.id);
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'diagram-row';
+    button.className = 'diagram-open';
     button.title = diagram.title;
+    button.setAttribute('aria-label', diagram.title + (diagram.isTest ? ', test diagram' : ''));
     button.setAttribute('aria-current', String(diagram.id === selected?.id));
     button.innerHTML = icon('diagram');
     const title = document.createElement('span');
+    title.className = 'diagram-row-title';
     title.textContent = diagram.title;
     button.append(title);
     button.addEventListener('click', () => { void openDiagram(diagram.id, { focusRow: true }); });
-    list.append(button);
-    picker.add(new Option(diagram.title, diagram.id));
+    const actions = document.createElement('div');
+    actions.className = 'diagram-row-actions';
+    for (const [name, symbol, run] of [['Organize', 'folder', openOrganization], ['Delete', 'trash', openDeletion]]) {
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'icon-button' + (symbol === 'trash' ? ' diagram-delete' : '');
+      action.title = `${name} diagram`;
+      action.setAttribute('aria-label', `${name} ${diagram.title}`);
+      action.dataset.action = name.toLowerCase();
+      action.innerHTML = icon(symbol);
+      action.disabled = libraryBusy;
+      action.addEventListener('click', () => run(diagram));
+      actions.append(action);
+    }
+    row.append(button, actions);
+    items.append(row);
+    optionGroup.append(new Option(diagram.title + (diagram.isTest ? ' · Test' : ''), diagram.id));
+    }
+    section.append(items);
+    list.append(section);
+    picker.append(optionGroup);
   }
   if (selected) picker.value = selected.id;
+  $('diagram-mobile-library').classList.toggle('is-test', Boolean(diagrams.find(d => d.id === selected?.id)?.isTest));
+  $('mobile-organize-diagram').disabled = libraryBusy || !selected;
+  $('mobile-delete-diagram').disabled = libraryBusy || !selected;
   $('diagram-mobile-library').hidden = diagrams.length === 0;
   $('diagram-count').textContent = diagrams.length || '';
 }
 
-async function refreshLibrary() {
+function openOrganization(diagram) {
+  if (libraryBusy) return;
+  organizeTarget = { ...diagram };
+  $('organize-diagram-name').textContent = diagram.title;
+  $('diagram-project-name').value = diagram.projectName || '';
+  $('diagram-is-test').checked = diagram.isTest === true;
+  $('organize-diagram-error').textContent = '';
+  $('organize-diagram-dialog').showModal();
+  $('diagram-project-name').focus();
+}
+
+function openDeletion(diagram) {
+  if (libraryBusy || (diagram.id === selected?.id && !diagramEdits.canLeave())) return;
+  deleteTarget = { ...diagram };
+  $('delete-diagram-name').textContent = diagram.title;
+  $('delete-diagram-error').textContent = '';
+  $('delete-diagram-dialog').showModal();
+  $('delete-diagram-dialog').querySelector('[data-close-dialog]').focus();
+}
+
+function setLibraryBusy(busy) {
+  libraryBusy = busy;
+  for (const dialog of [$('organize-diagram-dialog'), $('delete-diagram-dialog')]) {
+    for (const button of dialog.querySelectorAll('button')) button.disabled = busy;
+  }
+  renderLibrary();
+}
+
+function focusLibrary(id = selected?.id, action = null) {
+  const row = id ? $('diagram-list').querySelector(`[data-diagram-id="${id}"]`) : null;
+  const button = row?.querySelector(action ? `[data-action="${action}"]` : '.diagram-open');
+  if (button?.getClientRects().length) button.focus();
+  else if (diagrams.length) $(action ? `mobile-${action}-diagram` : 'diagram-picker').focus();
+  else $('refresh-diagrams').focus();
+}
+
+async function projectIdentity(name, previous) {
+  if (!name) return { projectKey: null, projectName: null };
+  if (name === previous.projectName) return { projectKey: previous.projectKey, projectName: name };
+  const known = diagrams.find(diagram => diagram.projectName === name && diagram.projectKey);
+  if (known) return { projectKey: known.projectKey, projectName: name };
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(name)));
+  return { projectKey: 'project-' + [...hash].slice(0, 8).map(byte => byte.toString(16).padStart(2, '0')).join(''), projectName: name };
+}
+
+async function reconcileLibrary(id, error) {
+  if (error.status && error.status !== 409 && error.status < 500) return null;
+  try { return (await request('/api/diagrams/' + id + '/metadata')).diagram; }
+  catch { return null; }
+}
+
+async function restoreLastDiagram() {
+  if (libraryBusy || !lastDeleted) return;
+  const target = lastDeleted;
+  setLibraryBusy(true);
+  try {
+    try {
+      await request('/api/diagrams/' + target.id + '/restore', { method: 'POST', body: { baseLibraryRevision: target.libraryRevision } });
+    } catch (error) {
+      const actual = await reconcileLibrary(target.id, error);
+      if (!actual || actual.deletedAt || actual.libraryRevision !== target.libraryRevision + 1) throw error;
+    }
+    lastDeleted = null;
+    await refreshLibrary({ afterWrite: true });
+    notice(`Restored “${target.title}”.`);
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) showAuth('Sign in again to restore the diagram.');
+    else notice(error.message, { label: 'Retry undo', run: restoreLastDiagram });
+  } finally {
+    setLibraryBusy(false);
+    if (!lastDeleted) focusLibrary(target.id);
+  }
+}
+
+function refreshLibrary({ afterWrite = false } = {}) {
+  if (libraryRefreshPromise) {
+    // A pre-write GET cannot confirm a mutation. Finish it, then read again.
+    return afterWrite ? libraryRefreshPromise.then(() => refreshLibrary({ afterWrite: true })) : libraryRefreshPromise;
+  }
+  libraryRefreshPromise = loadLibrary().finally(() => { libraryRefreshPromise = null; });
+  return libraryRefreshPromise;
+}
+
+async function loadLibrary() {
   if (libraryRequest) return;
   const controller = new AbortController();
   libraryRequest = controller;
   $('refresh-diagrams').disabled = true;
   try {
     const result = await request('/api/diagrams', { signal: controller.signal });
+    if (controller.signal.aborted) return;
     diagrams = result.diagrams.filter(diagram => typeof diagram.id === 'string' && diagramId.test(diagram.id) && diagram.id.length <= 64);
     $('mermaid-auth').hidden = true;
     $('mermaid-workspace').hidden = false;
@@ -144,6 +318,7 @@ async function refreshLibrary() {
       selected = null;
       renderLibrary();
       $('diagram-title').textContent = 'Diagram library';
+      $('diagram-project-label').textContent = 'Mermaid';
       document.title = 'Mermaid';
       message('Publish a Mermaid diagram from Codex with $mermaid.');
       return;
@@ -153,7 +328,11 @@ async function refreshLibrary() {
     if (requested && target.id !== requested) notice('That diagram is unavailable. Choose a diagram from the library.');
     if (selected?.id !== target.id || selected.revision !== target.revision || !stage.firstElementChild) {
       await openDiagram(target.id);
-    } else renderLibrary();
+    } else {
+      selected = { ...selected, ...target };
+      $('diagram-project-label').textContent = target.projectName || 'Ungrouped';
+      renderLibrary();
+    }
   } catch (error) {
     if (controller.signal.aborted) return;
     if (error.status === 401 || error.status === 403) showAuth();
@@ -171,10 +350,12 @@ async function openDiagram(id, { focusRow = false } = {}) {
   if (!diagramEdits.canLeave()) return;
   clearPreview();
   selected = entry;
+  collapsedProjects.delete(entry.projectKey || '');
   history.replaceState(null, '', '/mermaid#diagram=' + encodeURIComponent(id));
   renderLibrary();
   if (focusRow) $('diagram-list').querySelector('[aria-current="true"]')?.focus();
   $('diagram-title').textContent = entry.title;
+  $('diagram-project-label').textContent = entry.projectName || 'Ungrouped';
   document.title = entry.title + ' · Mermaid';
   message('Loading diagram…');
 
@@ -377,6 +558,88 @@ function enablePanZoom(viewport, image, signal) {
 
 const passwordSettings = createPasswordSettings({api: request, onSaved: notice, onUnauthorized: () => showAuth(), canOpen: () => !$('mermaid-workspace').hidden});
 $('mermaid-password-settings').addEventListener('click', () => { void passwordSettings.open(); });
+
+document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => {
+  if (!libraryBusy) $(button.dataset.closeDialog).close();
+}));
+for (const dialog of [$('organize-diagram-dialog'), $('delete-diagram-dialog')]) {
+  dialog.addEventListener('cancel', event => { if (libraryBusy) event.preventDefault(); });
+}
+$('mobile-organize-diagram').addEventListener('click', () => {
+  const diagram = diagrams.find(item => item.id === selected?.id);
+  if (diagram) openOrganization(diagram);
+});
+$('mobile-delete-diagram').addEventListener('click', () => {
+  const diagram = diagrams.find(item => item.id === selected?.id);
+  if (diagram) openDeletion(diagram);
+});
+$('organize-diagram-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (libraryBusy || !organizeTarget) return;
+  const target = organizeTarget;
+  const name = $('diagram-project-name').value.trim();
+  const isTest = $('diagram-is-test').checked;
+  $('organize-diagram-error').textContent = '';
+  setLibraryBusy(true);
+  try {
+    const project = await projectIdentity(name, target);
+    try {
+      await request('/api/diagrams/' + target.id + '/metadata', {
+        method: 'PATCH', body: { baseLibraryRevision: target.libraryRevision || 0, ...project, isTest },
+      });
+    } catch (error) {
+      const actual = await reconcileLibrary(target.id, error);
+      if (!actual || actual.deletedAt || actual.libraryRevision !== (target.libraryRevision || 0) + 1
+        || actual.projectKey !== project.projectKey || actual.projectName !== project.projectName || actual.isTest !== isTest) throw error;
+    }
+    collapsedProjects.delete(project.projectKey || '');
+    $('organize-diagram-dialog').close();
+    organizeTarget = null;
+    await refreshLibrary({ afterWrite: true });
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) showAuth('Sign in again to organize the diagram.');
+    else $('organize-diagram-error').textContent = error.status === 409
+      ? 'This diagram changed. Close this panel, refresh the library, and try again.' : error.message;
+  } finally {
+    setLibraryBusy(false);
+    if (!$('organize-diagram-dialog').open) focusLibrary(target.id, 'organize');
+  }
+});
+$('delete-diagram-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (libraryBusy || !deleteTarget) return;
+  const target = deleteTarget;
+  $('delete-diagram-error').textContent = '';
+  setLibraryBusy(true);
+  try {
+    let diagram;
+    try {
+      ({ diagram } = await request('/api/diagrams/' + target.id, {
+        method: 'DELETE', body: { baseRevision: target.revision, baseLibraryRevision: target.libraryRevision || 0 },
+      }));
+    } catch (error) {
+      diagram = await reconcileLibrary(target.id, error);
+      if (!diagram?.deletedAt || diagram.libraryRevision !== (target.libraryRevision || 0) + 1 || diagram.revision !== target.revision) throw error;
+    }
+    lastDeleted = { ...target, ...diagram };
+    $('delete-diagram-dialog').close();
+    deleteTarget = null;
+    if (selected?.id === target.id) {
+      clearPreview();
+      selected = null;
+      history.replaceState(null, '', '/mermaid');
+    }
+    await refreshLibrary({ afterWrite: true });
+    notice();
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) showAuth('Sign in again to delete the diagram.');
+    else $('delete-diagram-error').textContent = error.status === 409
+      ? 'This diagram changed. Close this panel, refresh the library, and try again.' : error.message;
+  } finally {
+    setLibraryBusy(false);
+    if (!$('delete-diagram-dialog').open) $('mermaid-notice').querySelector('button')?.focus();
+  }
+});
 
 $('mermaid-login').addEventListener('submit', async event => {
   event.preventDefault();

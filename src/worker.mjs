@@ -372,9 +372,78 @@ function diagramText(value, label, limitKiB) {
 }
 
 function storedDiagram(row, full = false) {
-  const result = { id: row.id, title: row.title, revision: row.revision, updatedAt: row.updated_at, kind: 'svg' };
+  const result = { id: row.id, title: row.title, revision: row.revision, updatedAt: row.updated_at, kind: 'svg', ...diagramLibraryMetadata(row.library, row.id) };
   if (full) result.source = row.source;
   return result;
+}
+
+const LIBRARY_FIELDS = 'diagram_id, project_key, project_name, is_test, deleted_at, revision, updated_at';
+function diagramLibraryMetadata(row, id) {
+  const builtIn = id === BUILT_IN_DIAGRAM.id;
+  return {
+    projectKey: row ? row.project_key : builtIn ? BUILT_IN_DIAGRAM.id : null,
+    projectName: row ? row.project_name : builtIn ? BUILT_IN_DIAGRAM.title : null,
+    isTest: Boolean(row?.is_test), libraryRevision: row?.revision ?? 0, deletedAt: row?.deleted_at ?? null,
+  };
+}
+async function diagramLibraryRow(db, id) {
+  return first(db, `SELECT ${LIBRARY_FIELDS} FROM diagram_library WHERE diagram_id = ?`, id);
+}
+async function requireVisibleDiagram(db, id) {
+  const metadata = await diagramLibraryRow(db, id);
+  if (metadata?.deleted_at) fail(404, 'Diagram was not found.');
+  return metadata;
+}
+function libraryRevision(value) {
+  if (!Number.isSafeInteger(value) || value < 0 || value >= Number.MAX_SAFE_INTEGER) fail(400, 'baseLibraryRevision must be a nonnegative integer.');
+  return value;
+}
+function libraryValues(input, previous) {
+  const value = { ...previous };
+  for (const [field, label] of [['projectKey', 'Project key'], ['projectName', 'Project name']]) {
+    if (Object.hasOwn(input, field)) value[field] = input[field] === null ? null : textField(input[field], label, 160);
+  }
+  if ((value.projectKey === null) !== (value.projectName === null)) fail(400, 'Set both projectKey and projectName, or clear both with null.');
+  if (Object.hasOwn(input, 'isTest')) {
+    if (typeof input.isTest !== 'boolean') fail(400, 'isTest must be true or false.');
+    value.isTest = input.isTest;
+  }
+  return value;
+}
+async function diagramLibraryAction(request, env, id, action) {
+  const db = env.DB;
+  const stored = id === BUILT_IN_DIAGRAM.id && interactiveDiagram
+    ? { ...BUILT_IN_DIAGRAM }
+    : await first(db, `SELECT ${DIAGRAM_FIELDS} FROM mermaid_diagrams WHERE id = ?`, id);
+  if (!stored) fail(404, 'Diagram was not found.');
+  const row = await diagramLibraryRow(db, id);
+  const previous = diagramLibraryMetadata(row, id);
+  if (action === 'metadata' && request.method === 'GET') {
+    const diagram = id === BUILT_IN_DIAGRAM.id ? { ...BUILT_IN_DIAGRAM, ...previous } : storedDiagram({ ...stored, library: row });
+    return json({ diagram });
+  }
+  const input = await body(request, 4096);
+  const base = libraryRevision(input.baseLibraryRevision);
+  if (previous.libraryRevision !== base) fail(409, 'This diagram library entry changed. Refresh it before saving again.');
+  if (action === 'restore' ? !previous.deletedAt : previous.deletedAt) fail(409, action === 'restore' ? 'This diagram is not deleted.' : 'This diagram is deleted. Restore it before changing it.');
+  if (action === 'delete' && revision(input.baseRevision) !== stored.revision) fail(409, 'This diagram changed. Refresh it before deleting it.');
+  if (action === 'metadata' && !['projectKey', 'projectName', 'isTest'].some(field => Object.hasOwn(input, field))) fail(400, 'Choose a project or test status to update.');
+  const values = action === 'metadata' ? libraryValues(input, previous) : previous;
+  const now = new Date().toISOString();
+  const deletedAt = action === 'delete' ? now : null;
+  const sourceCondition = id === BUILT_IN_DIAGRAM.id
+    ? '1 = ?'
+    : 'EXISTS (SELECT 1 FROM mermaid_diagrams WHERE id = ? AND revision = ?)';
+  const sourceValues = id === BUILT_IN_DIAGRAM.id ? [stored.revision] : [id, stored.revision];
+  const saved = await first(db, `INSERT INTO diagram_library (${LIBRARY_FIELDS})
+    SELECT ?, ?, ?, ?, ?, ?, ? WHERE COALESCE((SELECT revision FROM diagram_library WHERE diagram_id = ?), 0) = ? AND ${sourceCondition}
+    ON CONFLICT(diagram_id) DO UPDATE SET project_key = excluded.project_key, project_name = excluded.project_name,
+      is_test = excluded.is_test, deleted_at = excluded.deleted_at, revision = excluded.revision, updated_at = excluded.updated_at
+      WHERE diagram_library.revision = ? RETURNING ${LIBRARY_FIELDS}`,
+  id, values.projectKey, values.projectName, Number(values.isTest), deletedAt, base + 1, now, id, base, ...sourceValues, base);
+  if (!saved) fail(409, 'This diagram or library entry changed. Refresh it before saving again.');
+  const diagram = id === BUILT_IN_DIAGRAM.id ? { ...BUILT_IN_DIAGRAM, ...diagramLibraryMetadata(saved, id) } : storedDiagram({ ...stored, library: saved });
+  return json({ diagram });
 }
 
 const DIAGRAM_EDIT_LIMIT = 1000;
@@ -414,6 +483,7 @@ function storedEditRequest(row) {
   return { id: row.id, diagramId: row.diagram_id, diagramRevision: row.diagram_revision, diagramHash: row.diagram_hash, diagramTitle: row.diagram_title, originChatId: row.origin_chat_id, annotations: JSON.parse(row.annotations_json), createdAt: row.created_at, status: row.status, appliedRevision: row.applied_revision };
 }
 async function editDiagram(db, id) {
+  await requireVisibleDiagram(db, id);
   if (id === BUILT_IN_DIAGRAM.id && interactiveDiagram) return { ...BUILT_IN_DIAGRAM, diagramHash: interactiveDiagram.sha256 };
   const row = await first(db, 'SELECT id, title, revision, svg FROM mermaid_diagrams WHERE id = ?', id);
   if (!row) fail(404, 'Diagram was not found.');
@@ -422,6 +492,7 @@ async function editDiagram(db, id) {
 async function diagramEditAction(request, env, id, action) {
   const method = request.method;
   const db = env.DB;
+  await requireVisibleDiagram(db, id);
   if (action === 'origin' && ['GET', 'PUT'].includes(method)) {
     const diagram = await editDiagram(db, id);
     if (method === 'GET') {
@@ -460,9 +531,10 @@ async function diagramEditAction(request, env, id, action) {
     const now = new Date().toISOString();
     // Revision and library capacity are tested by the same INSERT that saves the request.
     const current = id === BUILT_IN_DIAGRAM.id ? '1 = ?' : 'EXISTS (SELECT 1 FROM mermaid_diagrams WHERE id = ? AND revision = ? AND svg = ?)';
-    const values = [requestId, id, base, baseHash, diagram.title, origin, JSON.stringify(annotations), payloadHash, now, DIAGRAM_EDIT_LIMIT, ...(id === BUILT_IN_DIAGRAM.id ? [base] : [id, base, diagram.svg])];
+    const values = [requestId, id, base, baseHash, diagram.title, origin, JSON.stringify(annotations), payloadHash, now, DIAGRAM_EDIT_LIMIT, ...(id === BUILT_IN_DIAGRAM.id ? [base] : [id, base, diagram.svg]), id];
     const saved = await first(db, `INSERT INTO diagram_edit_requests (id, diagram_id, diagram_revision, diagram_hash, diagram_title, origin_chat_id, annotations_json, payload_hash, created_at)
       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM diagram_edit_requests) < ? AND ${current}
+      AND NOT EXISTS (SELECT 1 FROM diagram_library WHERE diagram_id = ? AND deleted_at IS NOT NULL)
       ON CONFLICT(id) DO NOTHING RETURNING ${DIAGRAM_EDIT_FIELDS}`, ...values);
     if (saved) return json({ request: storedEditRequest(saved) }, 201);
     const raced = await first(db, `SELECT ${DIAGRAM_EDIT_FIELDS} FROM diagram_edit_requests WHERE id = ?`, requestId);
@@ -496,20 +568,26 @@ async function diagramApi(request, env, path) {
   const method = request.method;
   if (path === '/api/diagrams' && method === 'GET') {
     const { results } = await env.DB.prepare('SELECT id, title, revision, updated_at FROM mermaid_diagrams ORDER BY updated_at DESC, id ASC').all();
-    const diagrams = results.map(row => storedDiagram(row));
-    if (interactiveDiagram) diagrams.push(BUILT_IN_DIAGRAM);
+    const metadata = await env.DB.prepare(`SELECT ${LIBRARY_FIELDS} FROM diagram_library`).all();
+    const byId = new Map(metadata.results.map(row => [row.diagram_id, row]));
+    const diagrams = results.filter(row => !byId.get(row.id)?.deleted_at).map(row => storedDiagram({ ...row, library: byId.get(row.id) }));
+    if (interactiveDiagram && !byId.get(BUILT_IN_DIAGRAM.id)?.deleted_at) diagrams.push({ ...BUILT_IN_DIAGRAM, ...diagramLibraryMetadata(byId.get(BUILT_IN_DIAGRAM.id), BUILT_IN_DIAGRAM.id) });
     return json({ diagrams });
   }
+  const libraryAction = path.match(/^\/api\/diagrams\/([^/]+)\/(metadata|restore)$/);
+  if (libraryAction && ((libraryAction[2] === 'metadata' && ['GET', 'PATCH'].includes(method)) || (libraryAction[2] === 'restore' && method === 'POST'))) return diagramLibraryAction(request, env, diagramId(libraryAction[1]), libraryAction[2]);
   const action = path.match(/^\/api\/diagrams\/([^/]+)\/(origin|requests)$/);
   if (action) return diagramEditAction(request, env, diagramId(action[1]), action[2]);
-  if (!path.startsWith('/api/diagrams/') || !['GET', 'PUT'].includes(method)) fail(404, 'Diagram API route was not found.');
+  if (!path.startsWith('/api/diagrams/') || !['GET', 'PUT', 'DELETE'].includes(method)) fail(404, 'Diagram API route was not found.');
   const id = diagramId(path.slice('/api/diagrams/'.length));
   const db = env.DB;
+  if (method === 'DELETE') return diagramLibraryAction(request, env, id, 'delete');
+  const library = await requireVisibleDiagram(db, id);
   if (method === 'GET') {
-    if (id === BUILT_IN_DIAGRAM.id && interactiveDiagram) return json({ diagram: { ...BUILT_IN_DIAGRAM, source: null } });
+    if (id === BUILT_IN_DIAGRAM.id && interactiveDiagram) return json({ diagram: { ...BUILT_IN_DIAGRAM, ...diagramLibraryMetadata(library, id), source: null } });
     const row = await first(db, `SELECT ${DIAGRAM_FIELDS} FROM mermaid_diagrams WHERE id = ?`, id);
     if (!row) fail(404, 'Diagram was not found.');
-    return json({ diagram: storedDiagram(row, true) });
+    return json({ diagram: storedDiagram({ ...row, library }, true) });
   }
   if (id === BUILT_IN_DIAGRAM.id) fail(409, 'The built-in Interactive example diagram has a reserved ID.');
 
@@ -524,8 +602,8 @@ async function diagramApi(request, env, path) {
   // Return the row this statement wrote, even if another writer updates it immediately afterwards.
   const saved = base === 0
     ? await first(db, `INSERT INTO mermaid_diagrams (id, title, source, svg, revision, updated_at) SELECT ?, ?, ?, ?, 1, ? WHERE (SELECT COUNT(*) FROM mermaid_diagrams) < ? ON CONFLICT(id) DO NOTHING RETURNING ${DIAGRAM_FIELDS}`, id, title, source, svg, now, DIAGRAM_LIMIT)
-    : await first(db, `UPDATE mermaid_diagrams SET title = ?, source = ?, svg = ?, updated_at = ?, revision = revision + 1 WHERE id = ? AND revision = ? RETURNING ${DIAGRAM_FIELDS}`, title, source, svg, now, id, base);
-  if (saved) return json({ diagram: storedDiagram(saved, true) }, base === 0 ? 201 : 200);
+    : await first(db, `UPDATE mermaid_diagrams SET title = ?, source = ?, svg = ?, updated_at = ?, revision = revision + 1 WHERE id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM diagram_library WHERE diagram_id = ? AND deleted_at IS NOT NULL) RETURNING ${DIAGRAM_FIELDS}`, title, source, svg, now, id, base, id);
+  if (saved) return json({ diagram: storedDiagram({ ...saved, library }, true) }, base === 0 ? 201 : 200);
   const existing = await first(db, 'SELECT id FROM mermaid_diagrams WHERE id = ?', id);
   if (existing) fail(409, 'This diagram changed. Refresh it before saving again.');
   if (base === 0) fail(409, `The library has reached its limit of ${DIAGRAM_LIMIT} uploaded diagrams.`);
@@ -541,6 +619,7 @@ async function diagramResponse(request, env, path) {
   if (checksumValues.length > 1 || (checksumValues.length === 1 && !/^[a-f0-9]{64}$/i.test(checksumValues[0]))) fail(400, 'The preview checksum must be a SHA-256 value.');
   const checksum = checksumValues[0]?.toLowerCase() ?? null;
   const id = diagramId(path.slice('/diagram/'.length));
+  await requireVisibleDiagram(env.DB, id);
   if (id !== BUILT_IN_DIAGRAM.id) {
     const head = request.method === 'HEAD';
     const row = await first(env.DB, head && !checksum ? 'SELECT id FROM mermaid_diagrams WHERE id = ?' : 'SELECT svg FROM mermaid_diagrams WHERE id = ?', id);
