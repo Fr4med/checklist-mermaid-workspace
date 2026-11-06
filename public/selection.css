@@ -1,0 +1,7 @@
+.selection-actions{position:fixed;z-index:30;display:flex;align-items:center;padding:2px;background:#2b2b2b;border:1px solid rgba(255,255,255,.07);border-radius:7px;box-shadow:0 4px 14px #0005;max-width:calc(100vw - 16px);user-select:none}
+.selection-actions[hidden]{display:none}
+.selection-actions .selection-add{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 8px;border:0;border-radius:5px;background:transparent;color:#ededed;font:inherit;font-size:12px;line-height:20px;white-space:nowrap;cursor:pointer}
+.selection-actions .selection-add:hover{background:#383838}
+.selection-actions .selection-add:disabled{color:#b4b4b4;cursor:default;background:transparent}
+.selection-actions .selection-add:focus-visible{outline:2px solid var(--blue,#4284d4);outline-offset:3px}
+@media(hover:none){.selection-actions .selection-add{min-height:32px;padding-inline:10px}}

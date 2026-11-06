@@ -1,0 +1,18 @@
+flowchart TD
+  A[Start with a project] --> B{Choose a tool}
+  B --> C[Write a Markdown checklist]
+  B --> D[Draw a Mermaid diagram]
+  C --> E[Keep stable task IDs]
+  E --> F[Check tasks by hand]
+  F --> G[Sync without losing manual checks]
+  D --> H[Render the preview locally]
+  H --> I[Publish to your workspace]
+  I --> J[Point to a node or an area]
+  J --> K[Add comments and review]
+  K --> L[Save the edit request]
+  L --> M[Open the linked Codex chat]
+  M --> N[Review the published change]
+  classDef task fill:#3e4344,stroke:#627d84,color:#f0f0ed
+  classDef review fill:#464239,stroke:#8b7954,color:#f0f0ed
+  class A,C,D,E,F,G,H,I task
+  class B,J,K,L,M,N review

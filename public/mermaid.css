@@ -1,0 +1,222 @@
+.mermaid-workspace {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.mermaid-library {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0 12px 15px;
+  background: var(--panel);
+  border-right: 1px solid var(--edge);
+}
+
+.mermaid-brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  height: 62px;
+  padding: 0 8px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -.35px;
+}
+
+.mermaid-brand .icon { width: 20px; height: 20px; }
+.mermaid-library-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 8px 7px;
+  color: var(--secondary);
+}
+
+.mermaid-library-heading h2 { font-size: 12px; font-weight: 500; }
+#diagram-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+#diagram-list { min-height: 0; flex: 1; overflow: auto; padding: 4px; }
+.diagram-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px;
+  text-align: left;
+  border-radius: 7px;
+}
+
+.diagram-row span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.diagram-row .icon { width: 15px; height: 15px; color: var(--secondary); }
+.diagram-row:hover { background: var(--hover); }
+.diagram-row[aria-current="true"] { background: #2e2e2b; color: #f0f0ed; }
+.diagram-row:focus-visible { outline-offset: -2px; }
+.mermaid-library-tip { padding: 13px 8px 0; border-top: 1px solid var(--edge); color: var(--secondary); }
+.mermaid-library-tip code { color: #e1e1dd; }
+.mermaid-workspace > main { overflow: hidden; }
+.mermaid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 17px;
+  min-height: 55px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.mermaid-heading { min-width: 0; }
+.mermaid-heading h1 { font-size: 14px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mermaid-eyebrow { display: block; color: var(--secondary); font-size: 11px; }
+.mermaid-actions { display: flex; flex: none; align-items: center; gap: 5px; }
+.mermaid-actions .icon-button, .diagram-zoom .icon-button { width: 31px; height: 31px; }
+.mermaid-actions .mermaid-return {
+  width: 32px;
+  height: 32px;
+  margin-inline-start: 4px;
+  border: 2px solid #70706e;
+  border-radius: 7px;
+}
+
+.mermaid-return:hover { border-color: #aaa9a6; }
+.mermaid-stage { position: relative; min-height: 0; flex: 1; }
+.mermaid-visual, .mermaid-visual > iframe, .diagram-viewport { width: 100%; height: 100%; }
+.mermaid-visual > iframe { display: block; border: 0; }
+.diagram-viewport {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath d='M.5 0V36M0 .5H36' fill='none' stroke='%232a2a2a' stroke-dasharray='4 5'/%3E%3C/svg%3E");
+}
+
+.diagram-viewport:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.diagram-viewport.dragging { cursor: grabbing; }
+.diagram-viewport img {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  max-width: none;
+  max-height: none;
+  transform-origin: 0 0;
+  user-select: none;
+  pointer-events: none;
+}
+
+.mermaid-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+  color: var(--secondary);
+  pointer-events: none;
+}
+
+.mermaid-message button { pointer-events: auto; }
+.diagram-zoom {
+  position: absolute;
+  inset: auto 14px 14px auto;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #484848;
+  border-radius: 9px;
+  background: #212121;
+}
+
+.diagram-mobile-library { display: none; padding: 8px 12px; border-bottom: 1px solid var(--edge); }
+.diagram-mobile-library select { padding: 6px 9px; }
+.mermaid-auth-return { align-self: center; color: var(--secondary); }
+#source-dialog { width: min(690px, calc(100% - 28px)); }
+#source-text { display: block; min-height: 120px; max-height: 48dvh; }
+#copy-status { flex: 1; align-self: center; margin: 0; color: var(--secondary); }
+
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .mermaid-workspace { grid-template-columns: minmax(0, 1fr); }
+  .mermaid-library { display: none; }
+  .mermaid-toolbar { padding-inline: 12px; }
+  .diagram-mobile-library { display: block; }
+}
+
+@media (pointer: coarse) {
+  .mermaid-actions .icon-button, .diagram-zoom .icon-button { width: 44px; height: 44px; }
+  .diagram-mobile-library select, #mermaid-key, #source-text { font-size: 16px; }
+  .diagram-mobile-library select { min-height: 44px; }
+  #source-dialog .icon-button, #copy-source { min-width: 44px; min-height: 44px; }
+  .diagram-zoom { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+  .mermaid-toolbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+}
+
+/* Diagram edits keep the canvas visible while comments remain beside the selection. */
+.request-edits-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 31px; padding: 0 11px; border: 1px solid #494947; border-radius: 18px; color: #e6e6e3; background: #2a2a29; white-space: nowrap; font-size: 12px; }
+.request-edits-button .icon { width: 15px; height: 15px; }
+.request-edits-button:hover { border-color: #72726e; background: #353534; }
+.request-edits-button[aria-pressed="true"] { background: #e0e1dd; border-color: #e0e1dd; color: #1c1d1b; }
+.request-edit-count:empty { display: none; }
+.request-edit-count { font-variant-numeric: tabular-nums; }
+.diagram-edits-panel { position: absolute; z-index: 8; inset: 12px 12px 12px auto; display: flex; flex-direction: column; gap: 12px; width: min(350px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 16px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #555653; border-radius: 13px; background: #232423f5; box-shadow: 0 14px 45px #0005; }
+@supports (backdrop-filter: blur(12px)) { .diagram-edits-panel { background: #252625e8; backdrop-filter: blur(16px) saturate(1.1); } }
+.diagram-edits-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.diagram-edits-heading h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.diagram-edits-heading .icon-button { flex: none; }
+.diagram-edits-help, .diagram-edits-hint, .diagram-comment-empty, .diagram-chat-help, .diagram-send-help { margin: 0; color: #b8bab5; font-size: 12px; line-height: 1.6; }
+.diagram-edits-hint { color: #a8aaa5; }
+.diagram-edit-comments { display: flex; flex-direction: column; gap: 2px; }
+.diagram-edit-comment { position: relative; padding: 12px 62px 12px 0; border-top: 1px solid #444641; }
+.diagram-edit-comment strong { display: block; font-size: 12px; font-weight: 600; color: #e1e3dd; overflow-wrap: anywhere; }
+.diagram-edit-comment p { margin: 5px 0 0; white-space: pre-wrap; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.diagram-comment-row-actions { position: absolute; inset: 10px 0 auto auto; display: flex; gap: 2px; }
+.diagram-comment-row-actions .icon-button { width: 28px; height: 28px; }
+.diagram-comment-form label { display: block; color: #dedfd9; font-size: 13px; margin-bottom: 8px; }
+.diagram-comment-target { margin: 0 0 8px; color: #c0c3ba; font-size: 12px; overflow-wrap: anywhere; }
+.diagram-comment-form textarea { display: block; width: 100%; min-height: 96px; max-height: 30dvh; resize: vertical; }
+.diagram-comment-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.diagram-edits-error:empty, .diagram-review-error:empty { display: none; }
+.diagram-edits-error { margin: 0; font-size: 12px; }
+.diagram-native-status { margin: 0; color: #c7d3b4; font-size: 12px; line-height: 1.6; }
+.diagram-native-status:empty { display: none; }
+.diagram-edits-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid #444641; }
+.diagram-edits-footer button { font-size: 12px; }
+.diagram-saved-requests { border-top: 1px solid #444641; padding-top: 12px; color: #bfc1b9; font-size: 12px; }
+.diagram-saved-requests summary { cursor: pointer; }
+.diagram-saved-request-list { display: flex; flex-direction: column; gap: 5px; padding-top: 10px; }
+.diagram-saved-request { display: block; width: 100%; text-align: left; padding: 9px 7px; border-radius: 6px; font-size: 12px; color: #d1d3cb; }
+.diagram-saved-request:hover { background: #383a35; }
+.diagram-edit-review { width: min(780px, calc(100% - 28px)); max-height: calc(100dvh - 28px); overflow: auto; }
+.diagram-review-context { margin: 0 0 18px; color: #c6c8c0; overflow-wrap: anywhere; }
+.diagram-edit-review label { display: block; font-size: 13px; color: #d5d7cf; margin: 16px 0 8px; }
+#diagram-edit-chat, #diagram-edit-output { display: block; width: 100%; }
+#diagram-edit-output { min-height: 150px; max-height: 33dvh; font-size: 12px; line-height: 1.6; }
+.diagram-chat-help { margin-top: 7px; }
+.diagram-review-status { margin: 13px 0; font-size: 12px; color: #c8cbbf; overflow-wrap: anywhere; }
+.diagram-send-help { margin-top: 14px; }
+.diagram-review-actions { flex-wrap: wrap; margin-top: 18px; }
+.diagram-review-actions button, .diagram-review-actions a { font-size: 12px; }
+.diagram-open-chat { display: inline-flex; align-items: center; text-decoration: none; }
+.diagram-native-annotation { margin-top: 12px; }
+.diagram-annotating { cursor: crosshair; }
+.diagram-edit-pins { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.diagram-edit-pin { position: absolute; z-index: 2; width: 23px; height: 23px; display: grid; place-items: center; transform: translate(-50%, -50%); border: 2px solid #e2e8d8; border-radius: 50%; color: #1b2117; background: #d3dfbe; font-size: 11px; font-weight: 700; box-shadow: 0 2px 7px #0006; }
+.diagram-edit-region { position: absolute; border: 1.5px solid #d3dfbe; background: #c9dda914; }
+.diagram-edit-region.preview { border-style: dashed; }
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .mermaid-toolbar { flex-wrap: wrap; }
+  .mermaid-heading { flex-basis: 100%; }
+  .mermaid-actions { flex: 1; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .request-edits-button { margin-right: auto; }
+  .diagram-edits-panel { inset: auto 8px 8px; width: auto; max-height: min(54%, 440px); padding: 13px; gap: 10px; }
+  .diagram-edits-hint { display: none; }
+  .diagram-edit-review { padding: 18px; }
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .request-edits-button, .diagram-edits-panel button, .diagram-edit-review button, .diagram-open-chat { min-height: 44px; }
+  .diagram-comment-row-actions .icon-button, .diagram-edits-heading .icon-button { min-width: 44px; }
+  .diagram-edit-comment { padding-right: 94px; }
+  #diagram-comment, #diagram-edit-chat { font-size: 16px; }
+}
+@media (prefers-reduced-transparency: reduce) { .diagram-edits-panel { backdrop-filter: none; background: #252625; } }

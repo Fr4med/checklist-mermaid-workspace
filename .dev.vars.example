@@ -1,0 +1,4 @@
+# Intentionally blank: no shared default credentials.
+# Run npm run setup -- --url <your-workspace-origin> to generate local secrets.
+ADMIN_KEY=
+PASSWORD_PEPPER=

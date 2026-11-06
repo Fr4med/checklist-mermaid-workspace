@@ -1,0 +1,29 @@
+{
+  "name": "checklist-mermaid",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "dev": "npm run build && wrangler dev",
+    "checklist": "node scripts/checklist.mjs",
+    "setup": "node scripts/setup.mjs",
+    "mermaid": "node scripts/mermaid.mjs"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "marked": "18.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "libavoid-js": "0.4.5",
+    "mermaid": "12.3.0",
+    "playwright": "1.64.1",
+    "wrangler": "4.158.0"
+  },
+  "description": "Private Markdown checklists and Mermaid diagram feedback on one Cloudflare Worker.",
+  "engines": {
+    "node": ">=22.16"
+  }
+}

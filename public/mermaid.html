@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">
+  <meta name="color-scheme" content="dark">
+  <title>Mermaid</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/mermaid.css">
+  <script type="module" src="/mermaid.js"></script>
+</head>
+<body>
+  <section id="mermaid-auth" class="auth" aria-labelledby="sign-in-title" hidden>
+    <form id="mermaid-login" class="login">
+      <div class="login-mark" data-icon="diagram"></div>
+      <h1 id="sign-in-title">Mermaid</h1>
+      <p>Sign in to open your private diagram library.</p>
+      <label for="mermaid-key">Password</label>
+      <input id="mermaid-key" type="password" autocomplete="current-password" required placeholder="Enter your password">
+      <button class="primary" type="submit">Open Mermaid</button>
+      <p id="mermaid-auth-error" class="error" role="alert"></p>
+      <a id="auth-checklist" class="mermaid-auth-return" href="/">Return to Checklist</a>
+    </form>
+  </section>
+  <div id="mermaid-workspace" class="mermaid-workspace" data-ui="mermaid-workspace" hidden>
+    <aside class="mermaid-library" aria-label="Diagram library">
+      <div class="mermaid-brand"><span data-icon="diagram"></span><span>Mermaid</span></div>
+      <div class="mermaid-library-heading">
+        <h2>Diagrams</h2>
+        <span id="diagram-count"></span>
+      </div>
+      <nav id="diagram-list" aria-label="Diagrams"></nav>
+      <p class="mermaid-library-tip">Publish from Codex with <code>$mermaid</code>.</p>
+    </aside>
+    <main>
+      <header class="mermaid-toolbar">
+        <div class="mermaid-heading">
+          <span class="mermaid-eyebrow">Mermaid</span>
+          <h1 id="diagram-title">Diagram library</h1>
+        </div>
+        <div class="mermaid-actions">
+          <button id="request-diagram-edits" class="request-edits-button" type="button" aria-label="Request edits to this diagram" aria-pressed="false" disabled><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4M9 9l3 10 2-5 5-2z"/></svg><span>Request edits</span><span class="request-edit-count"></span></button>
+          <button id="refresh-diagrams" class="icon-button" type="button" title="Refresh diagrams" aria-label="Refresh diagrams" data-icon="refresh"></button>
+          <button id="diagram-source" class="icon-button" type="button" title="View Mermaid source" aria-label="View Mermaid source" data-icon="source" hidden></button>
+          <button id="mermaid-password-settings" class="icon-button" type="button" title="Password settings" aria-label="Password settings" data-icon="key"></button>
+          <button id="mermaid-sign-out" class="icon-button" type="button" title="Sign out" aria-label="Sign out" data-icon="logout"></button>
+          <a id="open-checklist" class="icon-button mermaid-return" href="/" title="Return to Checklist" aria-label="Return to Checklist" data-icon="checklist"></a>
+        </div>
+      </header>
+      <div id="diagram-mobile-library" class="diagram-mobile-library" hidden>
+        <label class="sr-only" for="diagram-picker">Diagram</label>
+        <select id="diagram-picker"></select>
+      </div>
+      <p id="mermaid-notice" class="notice" role="status" hidden></p>
+      <div class="mermaid-stage">
+        <div id="diagram-visual" class="mermaid-visual"></div>
+        <div id="diagram-message" class="mermaid-message">
+          <p id="diagram-message-text" role="status">Loading diagrams…</p>
+          <button id="retry-diagram" class="soft-button" type="button" hidden>Retry</button>
+        </div>
+        <div id="diagram-zoom" class="diagram-zoom" role="group" aria-label="Diagram zoom" hidden>
+          <button id="zoom-out" class="icon-button" type="button" title="Zoom out" aria-label="Zoom out" data-icon="minus"></button>
+          <button id="fit-diagram" class="icon-button" type="button" title="Fit diagram" aria-label="Fit diagram" data-icon="fit"></button>
+          <button id="zoom-in" class="icon-button" type="button" title="Zoom in" aria-label="Zoom in" data-icon="plus"></button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dialog id="source-dialog" aria-labelledby="source-title">
+    <div class="dialog-heading">
+      <h2 id="source-title">Mermaid source</h2>
+      <form method="dialog"><button class="icon-button" type="submit" title="Close" aria-label="Close" data-icon="close"></button></form>
+    </div>
+    <label class="sr-only" for="source-text">Mermaid source</label>
+    <textarea id="source-text" readonly spellcheck="false" rows="13"></textarea>
+    <div class="dialog-footer">
+      <p id="copy-status" role="status"></p>
+      <button id="copy-source" class="primary" type="button">Copy source</button>
+    </div>
+  </dialog>
+</body>
+</html>
