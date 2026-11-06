@@ -1,18 +1,18 @@
 # Repository presentation
 
-This is the proposed GitHub presentation for the release candidate. No public repository or search placement is asserted by this document.
+This file records the repository's presentation copy and the checks needed around it. Visibility, applied metadata and search placement need their own verification; prose cannot certify them into existence.
 
-## Proposed identity
+## Repository identity
 
-| Field | Prepared value |
+| Field | Presentation value |
 | --- | --- |
 | Repository name | `checklist-mermaid-workspace` |
 | README title | Checklist + Mermaid Workspace |
-| About description | Self-hosted Markdown checklists and Mermaid diagrams on Cloudflare Workers. Preserve manual task checks, publish diagrams from Codex, and request precise edits with point or area comments. |
+| About description | Markdown checklists and Mermaid diagrams on Cloudflare Workers. Preserve task checks, request precise diagram edits, and keep your backlog's resurrection attempts on record. |
 | Website | Leave empty until there is an intentionally public project page. A private workspace is not a public demo. |
 | License | Maintainer decision required before describing the project as open source. |
 
-The name says what the project contains. The description adds the platform, the source workflow and the diagram-review feature without repeating a list of search terms.
+The name says what the project contains. The description names the platform and two useful behaviors before the joke. A reader should understand the product before meeting its coping mechanism.
 
 Suggested topics:
 
@@ -35,7 +35,7 @@ These topics describe the implemented purpose, platform and language. GitHub per
 
 ## First-screen content
 
-The README opens with the product, deployment model and reason to use the two tools separately. It then shows the checklist, gives a short exercise, shows Mermaid and explains Request edits. Each feature connects to something a reader can do.
+The README opens with the product and deployment model, then gives the backlog one short insult. It shows the checklist, gives a small exercise, shows Mermaid and explains Request edits. Concrete controls and examples carry the explanation; jokes do not replace instructions.
 
 Screenshots should come from the exported application with fictional data:
 
@@ -50,13 +50,15 @@ Capture the app area rather than browser chrome. Inspect visible text, image met
 
 ## Writing direction
 
-The requested reference is DavidAU's practical explanatory style. The prepared prose uses feature explanations, concrete exercises, usage instructions and explicit limits. It does not copy model-card phrasing or adopt model-performance claims. [DavidAU's profile](https://huggingface.co/DavidAU) and a [representative current model card](https://huggingface.co/DavidAU/Qwen3.8-27B-Ultimate-Heretic-Uncensored) were inspected as style references.
+The owner requested blunt technical explanations with dry dark humor. Use an opinionated developer voice, exact controls, a small worked example and candid limits. Direct the humor at recurring tasks, broken software and our own overconfidence. Keep people and their personal circumstances out of the firing line.
+
+Earlier research inspected [DavidAU's profile](https://huggingface.co/DavidAU) and a [representative current model card](https://huggingface.co/DavidAU/Qwen3.8-27B-Ultimate-Heretic-Uncensored). Those are reference sources, not authorship or endorsement. The repository uses original wording and does not borrow model-performance claims or copy a model card's distinctive phrasing.
 
 Keep release notes equally concrete. For example:
 
-> Diagram comments now keep their selected point or area with the saved request. Open a request from the library and you can see which diagram revision it refers to before changing the source.
+> Diagram comments now keep their selected point or area and the reviewed revision. Open the saved request before editing. "I fixed the wrong version" is a poor resurrection story.
 
-Use that form only when the release actually contains the described behavior. Avoid unsupported speed, security, adoption or ranking claims.
+Use that form only when the release contains the described behavior. Keep commands, password guidance and recovery instructions precise. Do not force a joke into every section or make unsupported speed, security, adoption or ranking claims.
 
 ## Social preview
 
@@ -64,8 +66,8 @@ Prepare a simple image containing the project title and clean views of the two m
 
 GitHub recommends an image at least 640 by 320 pixels, with 1280 by 640 pixels for best display, under 1 MB. It accepts PNG, JPG and GIF. Uploading the social image is a repository setting, separate from placing README screenshots in Git. [GitHub social-preview guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview).
 
-## Before publication
+## Publication checks
 
-Review the exported source tree and its generated build separately. Confirm the selected license, screenshot contents, links, setup instructions and security guidance. Enable the repository security features appropriate to the account, including dependency alerts, secret scanning and push protection. [GitHub repository best practices](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories).
+Review the exported source tree and its generated build separately. Check the actual license status, screenshot contents, links, setup instructions and security guidance. A license remains a maintainer decision; public visibility does not select one. Enable the repository security features appropriate to the account, including dependency alerts, secret scanning and push protection. [GitHub repository best practices](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories).
 
-Publishing this prepared tree, changing repository visibility and applying the About settings are separate actions. They remain pending maintainer approval.
+Publishing source, changing visibility and applying the About settings are separate operations. Record the verified result of each. This document alone makes no claim that the metadata was applied, that the repository is public or that the social image was installed.

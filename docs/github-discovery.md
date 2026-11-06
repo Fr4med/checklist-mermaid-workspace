@@ -1,12 +1,12 @@
 # GitHub discovery notes
 
-Research checked November 5, 2026. The goal is to help a reader find and understand this project. Search ranking and external indexing remain unverified until a public repository exists.
+Research checked November 5, 2026; presentation copy revised November 6. The goal is to help a reader find and understand the project. Search ranking and external indexing remain unverified until somebody actually checks them. A repository description is not a traffic report.
 
 ## Match the way GitHub searches
 
 GitHub repository search uses the repository name, description and topics when an `in` qualifier is omitted. README content can be searched with `in:readme`. Put the main product terms in the About description and suitable topics, and use the README to explain them in natural language. [Repository search reference](https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories).
 
-The proposed name and description cover the two features, the Cloudflare deployment and the Codex workflow. The selected topic set stays within the implemented scope. Avoid tags that imply autonomous agent execution, a hosted public service or an open-source license before those claims are true.
+The repository name and presentation description name the two tools and Cloudflare deployment. The topic set covers the implemented Codex workflow. Keep the product terms easy to find; search engines have no obligation to understand our jokes. Avoid tags that imply autonomous agent execution, a hosted public service or an open-source license before those claims are true.
 
 After publication, inspect these searches manually:
 
@@ -22,7 +22,7 @@ Also search the exact repository name. Check that the displayed About text and t
 
 Keep the README in the repository root. Explain what the project does, why its behavior is useful, how to start, where to report a problem and what the operating limits are. Use relative links for the committed screenshots and documentation so they continue to work when the repository is cloned. [GitHub README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes).
 
-The prepared README puts a real application screenshot near the top, explains the two independent modes and gives one short exercise. It separates saved diagram requests from actual Codex message sending and keeps privacy and cost limits visible.
+The README puts a real application screenshot near the top, explains the two independent modes and gives one short exercise. It separates saved diagram requests from actual Codex message sending and keeps privacy and cost limits visible. The dry humor adds a voice; it does not get to invent capabilities.
 
 ## Give shared links a useful preview
 
@@ -30,7 +30,7 @@ The social preview should name the tool and show the app with fictional data. A 
 
 ## Check the published page
 
-Once publication is approved:
+When the repository is published or its presentation changes:
 
 1. Open the public repository without relying on a signed-in session and confirm its visibility.
 2. Read the opening paragraph and About description as a new visitor. Confirm they describe the actual exported app.
@@ -39,4 +39,4 @@ Once publication is approved:
 5. Run the discovery queries above and record the actual results.
 6. Review issues, releases and dependency alerts as maintenance work continues. Keep claims tied to releases that can be installed and tested.
 
-The proposed metadata and source preparation are ready for review. No search placement, public traffic or GitHub page test is claimed before publication.
+Check the actual About fields, visibility and rendered page after applying changes. No search placement, public traffic or completed GitHub page test is asserted here. Keep those results in a dated verification record when they are measured.
